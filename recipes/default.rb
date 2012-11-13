@@ -36,3 +36,9 @@ template "/var/www/phpinfo.php" do
   not_if { node['vagrant_wordpress']['phpinfo_enabled'] == false }
   notifies :restart, "service[apache2]", :immediately
 end
+
+#create a mysql database
+mysql_database node['vagrant_wordpress']['config']['db_name'] do
+  connection ({:host => "localhost", :username => 'root', :password => node['mysql']['server_root_password']})
+  action :create
+end
