@@ -7,6 +7,10 @@
   <% if @node['phpinfo_enabled'] != false %>
   Alias /phpinfo.php /var/www/phpinfo.php
   <% end %>
+  
+  <% node['vagrant_wordpress']['environment'].each do |a,b| %>
+  PassEnv <%= a %>
+  <% end %>
 
   <Directory <%= @params[:docroot] %>>
     Options FollowSymLinks
