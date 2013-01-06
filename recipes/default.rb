@@ -21,6 +21,10 @@ package "libpcre3-dev" do
   action :install
 end
 
+package "libsqlite3-dev" do 
+  action :install
+end
+
 #install the zip pecl
 php_pear "zip" do
   action :install
