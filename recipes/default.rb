@@ -51,7 +51,7 @@ template "/var/www/phpinfo.php" do
 end
 
 #create a mysql database
-mysql_database node['vagrant_wordpress']['config']['db_name'] do
+mysql_database node['vagrant_wordpress']['environment']['DB_NAME'] do
   connection ({:host => "localhost", :username => 'root', :password => node['mysql']['server_root_password']})
   action :create
 end
