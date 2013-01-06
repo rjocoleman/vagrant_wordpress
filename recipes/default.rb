@@ -11,18 +11,11 @@ include_recipe "apache2"
 include_recipe "apache2::mod_php5"
 include_recipe "apache2::mod_rewrite"
 
-#install apt zip package
-package "zip" do
-  action :install
-end
-
-#pcre headers are required for some pecl extns (like zip)
-package "libpcre3-dev" do
-  action :install
-end
-
-package "libsqlite3-dev" do 
-  action :install
+#install apt packages
+%w{zip libpcre3-dev libsqlite3-dev}.each do |pkg|
+  package pkg do
+    action :upgrade
+  end
 end
 
 #install the zip pecl
