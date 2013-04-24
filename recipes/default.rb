@@ -4,15 +4,19 @@ include_recipe "git"
 include_recipe "mysql::server"
 include_recipe "mysql::ruby"
 include_recipe "php"
-include_recipe "php::module_mysql"
-include_recipe "php::module_gd"
-include_recipe "php::module_curl"
 include_recipe "apache2"
 include_recipe "apache2::mod_php5"
 include_recipe "apache2::mod_rewrite"
 
+chef_gem "versionomy"
+require "versionomy"
+
+class Chef::Resource
+  include LampHelper
+end
+
 #install apt packages
-%w{zip libpcre3-dev libsqlite3-dev}.each do |pkg|
+%w{zip libpcre3-dev libsqlite3-dev php5-mysql php5-gd php5-curl}.each do |pkg|
   package pkg do
     action :upgrade
   end
@@ -64,30 +68,60 @@ ruby_block "append_env_variables" do
   end
 end
 
-#add mailcatcher if it's enabled
-gem_package "mailcatcher" do
-  not_if { node['vagrant_wordpress']['mailcatcher'] == false }
-  
-  action :install
-end
-
-# Get eth1 ip
-eth1_ip = node['network']['interfaces']['eth1']['addresses'].select{|key,val| val['family'] == 'inet'}.flatten[0]
-
-# Setup MailCatcher
-bash "mailcatcher" do
-  code "mailcatcher --http-ip #{eth1_ip}"
-  
-  not_if { node['vagrant_wordpress']['mailcatcher'] == false }
-end
-
-template "#{node['php']['ext_conf_dir']}/mailcatcher.ini" do
-  source "mailcatcher.ini.erb"
-  owner "root"
-  group "root"
-  mode "0644"
+#ioncube loader
+ruby_block "ioncube-loader" do
+  block do
+    # doing nothing, hack to do this ioncube stuff at convergence so that we can look at PHP's versions etc.
+  end
   action :create
-  notifies :restart, resources("service[apache2]"), :delayed
   
-  not_if { node['vagrant_wordpress']['mailcatcher'] == false }
+  not_if { node['vagrant_wordpress']['ioncube_loader'] == false }
+  only_if { `which php` != false }
+  
+  notifies :create, "remote_file[#{Chef::Config[:file_cache_path]}/ioncube_loader.tar.gz]", :immediately
+  notifies :run, "execute[ioncube-loader-extract]", :immediately
+  notifies :run, "execute[ioncube-loader-copy]", :immediately
+  notifies :create, "template[#{node['php']['ext_conf_dir']}/ioncube-loader.ini]", :immediately
+end
+
+case node["os"]
+when "linux" # only on linux, for now... 
+  remote_file "#{Chef::Config[:file_cache_path]}/ioncube_loader.tar.gz" do
+    if node['kernel']['machine'] =~ /x86_64/
+      source "http://downloads2.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz"
+    else
+      source "http://downloads2.ioncube.com/loader_downloads/ioncube_loaders_lin_x86.tar.gz"
+    end
+    
+    backup false
+    mode "0644"
+    
+    action :nothing
+  end
+  
+  #extract ioncube loader
+  execute "ioncube-loader-extract" do
+    cwd Chef::Config[:file_cache_path]
+    command "tar zxf #{Chef::Config[:file_cache_path]}/ioncube_loader.tar.gz"
+    
+    action :nothing
+  end
+  
+  #install ioncube loader
+  execute "ioncube-loader-copy" do
+    command "cp -r #{Chef::Config[:file_cache_path]}/ioncube/ioncube_loader_lin_#{get_php_version}.so #{get_php_extension_dir}"
+    
+    action :nothing
+  end
+  
+  template "#{node['php']['ext_conf_dir']}/ioncube-loader.ini" do
+    source "ioncube-loader.ini.erb"
+    owner "root"
+    group "root"
+    mode "0644"
+    variables(:php_version => lambda do return LampHelper.get_php_version end, :php_extension_dir => lambda { return system("/usr/bin/php-config --extension-dir") })
+    
+    action :nothing
+    notifies :restart, resources("service[apache2]"), :delayed
+  end
 end

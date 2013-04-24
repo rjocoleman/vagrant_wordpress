@@ -1,5 +1,5 @@
 name "vagrant_wordpress"
-version "0.0.6"
+version "0.0.7"
 description "A Chef cookbook for deployment of Wordpress with Vagrant."
 
 supports "ubuntu"
